@@ -3,6 +3,8 @@ package camera
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"sync"
 
 	"github.com/pilebones/go-udev/netlink"
 )
@@ -10,9 +12,11 @@ import (
 // UdevSource reads udev netlink events and emits device paths for
 // video4linux `change` events.
 type UdevSource struct {
-	conn   *netlink.UEventConn
-	out    chan string
-	cancel context.CancelFunc
+	conn      *netlink.UEventConn
+	out       chan string
+	cancel    context.CancelFunc
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func NewUdevSource(ctx context.Context) (*UdevSource, error) {
@@ -35,11 +39,13 @@ func NewUdevSource(ctx context.Context) (*UdevSource, error) {
 func (s *UdevSource) Events() <-chan string { return s.out }
 
 func (s *UdevSource) Close() error {
-	s.cancel()
-	if s.conn != nil {
-		return s.conn.Close()
-	}
-	return nil
+	s.closeOnce.Do(func() {
+		s.cancel()
+		if s.conn != nil {
+			s.closeErr = s.conn.Close()
+		}
+	})
+	return s.closeErr
 }
 
 func (s *UdevSource) pump(ctx context.Context) {
@@ -59,14 +65,19 @@ func (s *UdevSource) pump(ctx context.Context) {
 	}
 
 	quit := s.conn.Monitor(queue, errors, matcher)
-	defer func() { quit <- struct{}{} }()
+	defer func() {
+		select {
+		case quit <- struct{}{}:
+		default:
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-errors:
-			_ = e // log at caller; errors here are typically transient
+		case err := <-errors:
+			slog.Warn("udev read error", "err", err)
 		case uev := <-queue:
 			devname := uev.Env["DEVNAME"]
 			if devname == "" {
