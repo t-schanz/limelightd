@@ -1,0 +1,23 @@
+[Unit]
+Description=Elgato Key Light camera sync daemon
+After=network-online.target
+
+[Service]
+ExecStart=%h/.local/bin/limelightd
+Restart=on-failure
+RestartSec=5s
+
+# Hardening — this daemon does not need any of the following.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=default.target
