@@ -67,6 +67,12 @@ func main() {
 		2*time.Second,
 	)
 
+	// Run an initial discovery synchronously so a startup-in-use camera doesn't
+	// trigger an intent before the light cache is populated.
+	initCtx, initCancel := context.WithTimeout(rootCtx, 3*time.Second)
+	discoverySrc.Refresh(initCtx)
+	initCancel()
+
 	// --- Wire goroutines ---
 
 	go discoverySrc.Run(rootCtx)

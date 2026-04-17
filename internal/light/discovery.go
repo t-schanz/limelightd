@@ -50,25 +50,10 @@ func (s *CachedSource) Invalidate() {
 	}
 }
 
-func (s *CachedSource) Run(ctx context.Context) {
-	s.refresh(ctx)
-
-	t := time.NewTicker(s.refreshInterval)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			s.refresh(ctx)
-		case <-s.invalidate:
-			s.refresh(ctx)
-		}
-	}
-}
-
-func (s *CachedSource) refresh(ctx context.Context) {
+// Refresh runs one discovery synchronously and updates the cache.
+// Call this once at startup (before launching event producers) so the first
+// light intent does not arrive before the cache is populated.
+func (s *CachedSource) Refresh(ctx context.Context) {
 	lights, err := s.discover(ctx, s.queryTimeout)
 	if err != nil {
 		slog.Warn("discovery failed", "err", err)
@@ -78,6 +63,24 @@ func (s *CachedSource) refresh(ctx context.Context) {
 	s.cached = lights
 	s.mu.Unlock()
 	slog.Info("discovery refreshed", "lights", len(lights))
+}
+
+// Run refreshes the cache on an interval and on demand via Invalidate.
+// Does not perform an initial refresh — call Refresh synchronously first.
+func (s *CachedSource) Run(ctx context.Context) {
+	t := time.NewTicker(s.refreshInterval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			s.Refresh(ctx)
+		case <-s.invalidate:
+			s.Refresh(ctx)
+		}
+	}
 }
 
 // DiscoverElgato is the real mDNS-backed DiscoverFunc. It queries

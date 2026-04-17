@@ -64,7 +64,8 @@ func (c *Controller) Run(ctx context.Context, in <-chan events.LightIntent) {
 func (c *Controller) dispatch(ctx context.Context, intent events.LightIntent) {
 	lights := c.src.Lights()
 	if len(lights) == 0 {
-		slog.Warn("no lights known; skipping", "intent_on", intent.On)
+		slog.Warn("no lights known; triggering rediscovery", "intent_on", intent.On)
+		c.src.Invalidate()
 		return
 	}
 	body := c.payload(intent.On)
