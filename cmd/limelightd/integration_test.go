@@ -17,12 +17,6 @@ import (
 	"limelightd/internal/light"
 )
 
-// fakeUdev lets the test shove events through the pipeline.
-type fakeUdev struct{ out chan string }
-
-func (f *fakeUdev) Events() <-chan string { return f.out }
-func (f *fakeUdev) Close() error          { return nil }
-
 type stubProbe struct{ state atomic.Bool }
 
 func (s *stubProbe) IsInUse(string) (bool, error) { return s.state.Load(), nil }
@@ -56,11 +50,10 @@ func TestEndToEnd_OpenThenClose(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	udev := &fakeUdev{out: make(chan string, 16)}
 	probe := &stubProbe{}
 	lights := &staticLights{l: []light.Light{{Host: strings.TrimPrefix(srv.URL, "http://")}}}
 
-	watcher := camera.NewWatcher(udev, probe)
+	watcher := camera.NewPollingWatcher(probe, []string{"/dev/video0"}, 10*time.Millisecond)
 	rawEvents := make(chan events.CameraEvent, 16)
 	intents := make(chan events.LightIntent, 16)
 
@@ -77,19 +70,17 @@ func TestEndToEnd_OpenThenClose(t *testing.T) {
 	go deb.Run(ctx, rawEvents, intents)
 	go controller.Run(ctx, intents)
 
-	// Open
+	// Flip to in-use; watcher's next poll emits Open; debouncer emits after 50 ms.
 	probe.state.Store(true)
-	udev.out <- "/dev/video0"
-	waitFor(t, 500*time.Millisecond, func() bool {
+	waitFor(t, 1*time.Second, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
 		return len(payloads) == 1
 	}, "initial On payload")
 
-	// Close
+	// Flip to free; next poll emits Close; debouncer emits after 50 ms.
 	probe.state.Store(false)
-	udev.out <- "/dev/video0"
-	waitFor(t, 500*time.Millisecond, func() bool {
+	waitFor(t, 1*time.Second, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
 		return len(payloads) == 2

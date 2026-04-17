@@ -31,6 +31,7 @@ func main() {
 		"temperature", cfg.Light.Temperature,
 		"on_ms", cfg.Debounce.OnMs,
 		"off_ms", cfg.Debounce.OffMs,
+		"poll_interval", cfg.Poll.Interval,
 	)
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -38,15 +39,14 @@ func main() {
 
 	// --- Components ---
 
-	source, err := camera.NewUdevSource(rootCtx)
+	devices, err := camera.ListVideoDevices()
 	if err != nil {
-		slog.Error("udev setup failed", "err", err)
-		os.Exit(1)
+		slog.Warn("video device enumeration failed", "err", err)
 	}
-	defer source.Close()
+	slog.Info("watching devices", "devices", devices)
 
 	probe := camera.NewProcProbe()
-	watcher := camera.NewWatcher(source, probe)
+	watcher := camera.NewPollingWatcher(probe, devices, cfg.Poll.Interval)
 
 	rawEvents := make(chan events.CameraEvent, 16)
 	intents := make(chan events.LightIntent, 16)
@@ -70,13 +70,7 @@ func main() {
 	// --- Wire goroutines ---
 
 	go discoverySrc.Run(rootCtx)
-
-	devices, err := camera.ListVideoDevices()
-	if err != nil {
-		slog.Warn("video device enumeration failed", "err", err)
-	}
-	go watcher.RunWithInitialScan(rootCtx, rawEvents, devices)
-
+	go watcher.Run(rootCtx, rawEvents)
 	go deb.Run(rootCtx, rawEvents, intents)
 	go controller.Run(rootCtx, intents)
 

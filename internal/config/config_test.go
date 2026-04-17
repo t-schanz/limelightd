@@ -25,6 +25,9 @@ func TestDefaults(t *testing.T) {
 	if c.Discovery.RefreshInterval != 5*time.Minute {
 		t.Errorf("RefreshInterval = %v, want 5m", c.Discovery.RefreshInterval)
 	}
+	if c.Poll.Interval != 500*time.Millisecond {
+		t.Errorf("Poll.Interval = %v, want 500ms", c.Poll.Interval)
+	}
 }
 
 func TestLoad_MissingFileReturnsDefaults(t *testing.T) {
@@ -51,6 +54,9 @@ off_ms = 500
 
 [discovery]
 refresh_interval = "2m"
+
+[poll]
+interval = "250ms"
 `
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
@@ -74,6 +80,9 @@ refresh_interval = "2m"
 	}
 	if c.Discovery.RefreshInterval != 2*time.Minute {
 		t.Errorf("RefreshInterval = %v, want 2m", c.Discovery.RefreshInterval)
+	}
+	if c.Poll.Interval != 250*time.Millisecond {
+		t.Errorf("Poll.Interval = %v, want 250ms", c.Poll.Interval)
 	}
 }
 

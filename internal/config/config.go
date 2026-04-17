@@ -14,6 +14,7 @@ type Config struct {
 	Light     LightConfig     `toml:"light"`
 	Debounce  DebounceConfig  `toml:"debounce"`
 	Discovery DiscoveryConfig `toml:"discovery"`
+	Poll      PollConfig      `toml:"poll"`
 }
 
 type LightConfig struct {
@@ -30,11 +31,16 @@ type DiscoveryConfig struct {
 	RefreshInterval time.Duration `toml:"refresh_interval"`
 }
 
+type PollConfig struct {
+	Interval time.Duration `toml:"interval"`
+}
+
 func Defaults() Config {
 	return Config{
 		Light:     LightConfig{Brightness: 20, Temperature: 213},
 		Debounce:  DebounceConfig{OnMs: 200, OffMs: 1000},
 		Discovery: DiscoveryConfig{RefreshInterval: 5 * time.Minute},
+		Poll:      PollConfig{Interval: 500 * time.Millisecond},
 	}
 }
 
