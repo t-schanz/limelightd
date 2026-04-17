@@ -65,3 +65,12 @@ func (p *ProcProbe) IsInUse(devicePath string) (bool, error) {
 	}
 	return false, nil
 }
+
+// readDirIgnoreENOENT is a small helper that treats a missing path as an empty dir.
+func readDirIgnoreENOENT(path string) ([]os.DirEntry, error) {
+	entries, err := os.ReadDir(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return entries, err
+}
