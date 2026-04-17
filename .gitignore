@@ -1,1 +1,11 @@
+# Build artifacts
+/limelightd
+/dist/
+*.test
+*.out
+
+# IDE (allow .idea since the repo already tracks it)
 .idea/
+
+# OS
+.DS_Store
