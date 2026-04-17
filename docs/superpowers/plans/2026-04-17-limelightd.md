@@ -16,7 +16,7 @@
 
 ## Working Directory & Project Root
 
-All paths in this plan are relative to the git repository root: `/home/tobias/PycharmProjects/PythonProject/PythonProject/`. The Go module lives at the repo root (module name: `limelightd`).
+All paths in this plan are relative to the git repository root: `/home/tobias/PycharmProjects/PythonProject/limelightd/`. The Go module lives at the repo root (module name: `limelightd`).
 
 ---
 
@@ -59,7 +59,7 @@ Files created by this plan:
 Run in repo root:
 
 ```bash
-cd /home/tobias/PycharmProjects/PythonProject/PythonProject
+cd /home/tobias/PycharmProjects/PythonProject/limelightd
 go mod init limelightd
 ```
 
