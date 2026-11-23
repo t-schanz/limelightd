@@ -2,6 +2,7 @@ package debounce
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"limelightd/internal/events"
@@ -64,6 +65,9 @@ func (d *Debouncer) Run(ctx context.Context, in <-chan events.CameraEvent, out c
 			wantOn := ev.Kind == events.Open
 			if wantOn == emittedOn {
 				// Cancels any pending transition back to the current state.
+				if pendingFire != nil {
+					slog.Debug("debouncer cancelled pending transition", "event", ev.Kind.String(), "emitted_on", emittedOn)
+				}
 				pendingFire = nil
 				continue
 			}
@@ -73,11 +77,13 @@ func (d *Debouncer) Run(ctx context.Context, in <-chan events.CameraEvent, out c
 			if wantOn {
 				delay = d.cfg.OnDelay
 			}
+			slog.Debug("debouncer scheduled transition", "event", ev.Kind.String(), "want_on", wantOn, "delay", delay)
 			pendingFire = d.clock.After(delay)
 
 		case now := <-pendingFire:
 			emittedOn = pendingOn
 			pendingFire = nil
+			slog.Info("debouncer emitted intent", "on", emittedOn)
 			select {
 			case out <- events.LightIntent{On: emittedOn, At: now}:
 			case <-ctx.Done():

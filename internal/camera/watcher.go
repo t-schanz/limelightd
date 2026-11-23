@@ -56,7 +56,9 @@ func (w *PollingWatcher) scan(ctx context.Context, out chan<- events.CameraEvent
 			slog.Warn("probe failed", "device", d, "err", err)
 			continue
 		}
-		if inUse == w.state[d] {
+		prev := w.state[d]
+		slog.Debug("watcher tick", "device", d, "in_use", inUse, "previous", prev)
+		if inUse == prev {
 			continue
 		}
 		w.state[d] = inUse
@@ -64,6 +66,7 @@ func (w *PollingWatcher) scan(ctx context.Context, out chan<- events.CameraEvent
 		if inUse {
 			kind = events.Open
 		}
+		slog.Info("camera state changed", "device", d, "kind", kind.String(), "in_use", inUse, "was", prev)
 		select {
 		case out <- events.CameraEvent{Kind: kind, At: time.Now()}:
 		case <-ctx.Done():

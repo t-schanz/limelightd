@@ -1,11 +1,14 @@
 package camera
 
 import (
+	"context"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 // DeviceProbe resolves whether a v4l2 device is currently held open by any process.
@@ -32,10 +35,13 @@ func (p *ProcProbe) root() string {
 }
 
 func (p *ProcProbe) IsInUse(devicePath string) (bool, error) {
+	debug := slog.Default().Enabled(context.Background(), slog.LevelDebug)
+
 	entries, err := os.ReadDir(p.root())
 	if err != nil {
 		return false, err
 	}
+	var holders []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -59,11 +65,30 @@ func (p *ProcProbe) IsInUse(devicePath string) (bool, error) {
 				continue
 			}
 			if target == devicePath {
-				return true, nil
+				if !debug {
+					return true, nil
+				}
+				holders = append(holders, p.describeHolder(e.Name()))
+				break // one FD match per process is enough
 			}
 		}
 	}
-	return false, nil
+	if debug {
+		slog.Debug("probe scan", "device", devicePath, "in_use", len(holders) > 0, "holders", holders)
+	}
+	return len(holders) > 0, nil
+}
+
+// describeHolder returns "pid=NNN comm=foo" for the given PID dir name, best-effort.
+func (p *ProcProbe) describeHolder(pid string) string {
+	comm := ""
+	if b, err := os.ReadFile(filepath.Join(p.root(), pid, "comm")); err == nil {
+		comm = strings.TrimSpace(string(b))
+	}
+	if comm == "" {
+		return "pid=" + pid
+	}
+	return "pid=" + pid + " comm=" + comm
 }
 
 // readDirIgnoreENOENT is a small helper that treats a missing path as an empty dir.
